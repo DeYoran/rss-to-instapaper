@@ -49,25 +49,31 @@ class FetchRssFeeds extends Command
                     continue;
                 }
 
-                if (Article::where('guid', $guid)->exists()) {
+                $existing = Article::where('guid', $guid)->first();
+
+                if ($existing && $existing->sent_to_instapaper_at) {
                     continue;
                 }
 
-                $publishedAt = $item->get_date('Y-m-d H:i:s');
+                if ($existing) {
+                    $article = $existing;
+                } else {
+                    $publishedAt = $item->get_date('Y-m-d H:i:s');
 
-                if ($publishedAt && now()->diffInHours($publishedAt) > 24) {
-                    continue;
+                    if ($publishedAt && now()->diffInHours($publishedAt) > 24) {
+                        continue;
+                    }
+
+                    $article = Article::create([
+                        'feed_id' => $feed->id,
+                        'guid' => $guid,
+                        'title' => $title,
+                        'url' => $url,
+                        'published_at' => $publishedAt,
+                    ]);
+
+                    $feedNew++;
                 }
-
-                $article = Article::create([
-                    'feed_id' => $feed->id,
-                    'guid' => $guid,
-                    'title' => $title,
-                    'url' => $url,
-                    'published_at' => $publishedAt,
-                ]);
-
-                $feedNew++;
 
                 if ($instapaper->addUrl($url, $title)) {
                     $article->update(['sent_to_instapaper_at' => now()]);
